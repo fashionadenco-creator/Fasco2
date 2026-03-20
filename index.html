@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Visualizer Pro - Asli</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        body { background: #050505; color: white; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: slideIn 0.2s ease-out forwards; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // 1. Inisialisasi React Standalone
+        const { useState, useRef, useEffect } = window.React;
+
+        // 2. MOCK LUCIDE ICONS (Menjembatani Lucide agar bisa jalan di HTML tanpa npm)
+        const Play = ({size}) => <span style={{fontSize: size}}>▶️</span>;
+        const Pause = ({size}) => <span style={{fontSize: size}}>⏸️</span>;
+        const Video = ({size}) => <span style={{fontSize: size}}>🎥</span>;
+        const Square = ({size}) => <span style={{fontSize: size}}>⏹️</span>;
+        const Music = ({size, className}) => <span className={className} style={{fontSize: size}}>🎵</span>;
+        const ImageIcon = ({size}) => <span style={{fontSize: size}}>🖼️</span>;
+        const Layers = ({size}) => <span style={{fontSize: size}}>📚</span>;
+        const Monitor = ({size}) => <span style={{fontSize: size}}>🖥️</span>;
+        const Gauge = ({size}) => <span style={{fontSize: size}}>⏱️</span>;
+        const Activity = ({size}) => <span style={{fontSize: size}}>📈</span>;
+        const ListMusic = ({size}) => <span style={{fontSize: size}}>🎼</span>;
+        const Plus = ({size}) => <span style={{fontSize: size}}>➕</span>;
+        const Circle = ({size}) => <span style={{fontSize: size}}>⏺️</span>;
+        const Sliders = ({size}) => <span style={{fontSize: size}}>🎛️</span>;
+        const Aperture = ({size}) => <span style={{fontSize: size}}>👁️</span>;
+        const AudioWaveform = ({size}) => <span style={{fontSize: size}}>〰️</span>;
+        const Trash2 = ({size}) => <span style={{fontSize: size}}>🗑️</span>;
+        const Smile = ({size}) => <span style={{fontSize: size}}>🤖</span>;
+        const Zap = ({size}) => <span style={{fontSize: size}}>⚡</span>;
+        const Disc = ({size}) => <span style={{fontSize: size}}>💿</span>;
+        const Gamepad2 = ({size}) => <span style={{fontSize: size}}>🎮</span>;
+        const Hexagon = ({size}) => <span style={{fontSize: size}}>⬡</span>;
+        const Wifi = ({size}) => <span style={{fontSize: size}}>📶</span>;
+        const Move = ({size}) => <span style={{fontSize: size}}>🔀</span>;
+        const Sun = ({size}) => <span style={{fontSize: size}}>☀️</span>;
+        const Smartphone = ({size}) => <span style={{fontSize: size}}>📱</span>;
+        const Settings = ({size}) => <span style={{fontSize: size}}>⚙️</span>;
+        const MicOff = ({size}) => <span style={{fontSize: size}}>🔇</span>;
+        const Speaker = ({size}) => <span style={{fontSize: size}}>🔊</span>;
+        const Sparkles = ({size}) => <span style={{fontSize: size}}>✨</span>;
+
+        // 3. KODE ASLI LU (DI-PASTE UTUH 100% TANPA DIKURANGI SEBARIS PUN)
+        const App = () => {
+          // --- UI STATE ---
+          const [isPlaying, setIsPlaying] = useState(false);
+          const [isRecording, setIsRecording] = useState(false);
+          const [recTime, setRecTime] = useState(0);
+          const [fps, setFps] = useState(0);
+          const [playlist, setPlaylist] = useState([]);
+          const [currentSongIndex, setCurrentSongIndex] = useState(-1);
+          const [showSettings, setShowSettings] = useState(false);
+          
+          // State Active
+          const [activeStyle, setActiveStyle] = useState('PARTICLE_MASCOT'); 
+          const [activeMascot, setActiveMascot] = useState(true);
+          const [activeWidthMode, setActiveWidthMode] = useState('NORMAL');
+          
+          // Resolution State
+          const [ratio, setRatio] = useState('16:9'); // '16:9' or '9:16'
+          
+          // Audio FX States
+          const [fxNoise, setFxNoise] = useState(false);
+          const [fxBass, setFxBass] = useState(false);
+          const [fxClear, setFxClear] = useState(false);
+
+          // --- ENGINE CONFIG ---
+          const engine = useRef({
+              style: 'PARTICLE_MASCOT',
+              showMascot: true,
+              radius: 100, 
+              thick: 4,         
+              height: 2.0,      
+              bgDim: 0.9,       
+              kick: 1.5,        
+              zoom: 1.0,        
+              sensitivity: 1.0, 
+              amplitude: 1.0,   
+              size: 1.0,        
+              shake: 0.0,
+              ratioMode: '16:9'
+          });
+
+          // --- REFS SYSTEM ---
+          const canvasRef = useRef(null);
+          const audioRef = useRef(null);
+          const audioCtxRef = useRef(null);
+          const analyserRef = useRef(null);
+          const sourceRef = useRef(null);
+          const streamDestRef = useRef(null);
+          const mediaRecorderRef = useRef(null);
+          const chunksRef = useRef([]);
+          const reqRef = useRef(null);
+          const timerRef = useRef(null);
+          const dataArrayRef = useRef(new Uint8Array(0)); 
+          
+          const recStartTimeRef = useRef(0);
+          const beatRef = useRef({ peak: 0, decay: 0, threshold: 0.5 });
+          
+          // DSP NODES 
+          const dsp = useRef({
+              preGain: null,
+              hpf: null,
+              lpf: null,
+              clarity: null,
+              air: null,
+              bassPunch: null,
+              bassSub: null,
+              masterLimiter: null,
+              postGain: null 
+          });
+          
+          const bgImgRef = useRef(null);
+          const logoImgRef = useRef(null);
+          const audioInputRef = useRef(null);
+          const bgInputRef = useRef(null);
+          const logoInputRef = useRef(null);
+
+          const anim = useRef({ angle: 0, hexRot: 0, demoPhase: 0, orbitRot: 0 });
+          const frameCount = useRef(0);
+          const lastTime = useRef(performance.now());
+
+          const visualModes = [
+              { id: 'PARTICLE_MASCOT', label: 'MASCOT', icon: Smile }, 
+              { id: 'RADIANT_SUN', label: 'RADIANT', icon: Sun },      
+              { id: 'CYBER_RING', label: 'CYBER', icon: Zap },         
+              { id: 'ORBIT_PARTY', label: 'ORBIT', icon: Circle },     
+              { id: 'PARTY_VIBES', label: 'PARTY', icon: Activity },   
+              { id: 'SUNBURST_PRO', label: 'SUNBURST', icon: Disc },
+              { id: 'NEON_WORLD', label: 'NEON', icon: Gamepad2 },
+              { id: 'SPECTRUM_AI', label: 'SPECTRUM', icon: Aperture },
+              { id: 'HORIZON', label: 'HORIZON', icon: AudioWaveform },
+              { id: 'CIRCLE_BARS', label: 'CLASSIC', icon: Wifi },
+              { id: 'HEXAGON', label: 'HEXAGON', icon: Hexagon },
+              { id: 'WAVEFORM_PRO', label: 'WAVEFORM', icon: AudioWaveform }, 
+              { id: 'DIAMOND_CORE', label: 'DIAMOND', icon: Hexagon }, 
+              { id: 'PULSE_RING', label: 'PULSE', icon: Disc },
+              { id: 'DIGITAL_RAIN', label: 'RAIN', icon: Activity },
+              { id: 'DUAL_MIRROR', label: 'MIRROR', icon: Layers },
+          ];
+
+          // --- 1. INITIALIZATION ---
+          useEffect(() => {
+              const script = document.createElement('script');
+              script.src = "https://unpkg.com/fix-webm-duration@1.0.6/fix-webm-duration.js";
+              script.async = true;
+              document.body.appendChild(script);
+
+              reqRef.current = requestAnimationFrame(loop);
+              
+              return () => {
+                if(reqRef.current) cancelAnimationFrame(reqRef.current);
+                if(timerRef.current) clearInterval(timerRef.current);
+                if(document.body.contains(script)) document.body.removeChild(script);
+              };
+          }, []);
+
+          // --- 2. AUDIO ENGINE ---
+          const initAudio = () => {
+              if (!audioCtxRef.current) {
+                  try {
+                      const AC = window.AudioContext || window.webkitAudioContext;
+                      const ctx = new AC();
+                      audioCtxRef.current = ctx;
+                      
+                      const analyser = ctx.createAnalyser();
+                      analyser.fftSize = 2048; 
+                      analyserRef.current = analyser;
+                      
+                      dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
+
+                      const preGain = ctx.createGain(); preGain.gain.value = 0.9;
+                      const hpf = ctx.createBiquadFilter(); hpf.type = 'highpass'; hpf.frequency.value = 20; hpf.Q.value = 0.7;
+                      const lpf = ctx.createBiquadFilter(); lpf.type = 'lowpass'; lpf.frequency.value = 22000;
+                      const clarity = ctx.createBiquadFilter(); clarity.type = 'peaking'; clarity.frequency.value = 2500; clarity.Q.value = 0.5;
+                      const air = ctx.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 8000; 
+                      const bassPunch = ctx.createBiquadFilter(); bassPunch.type = 'peaking'; bassPunch.frequency.value = 85; bassPunch.Q.value = 1.0; 
+                      const bassSub = ctx.createBiquadFilter(); bassSub.type = 'lowshelf'; bassSub.frequency.value = 55;
+
+                      const masterLimiter = ctx.createDynamicsCompressor();
+                      masterLimiter.threshold.setValueAtTime(-10.0, ctx.currentTime); 
+                      masterLimiter.knee.setValueAtTime(10, ctx.currentTime);         
+                      masterLimiter.ratio.setValueAtTime(12, ctx.currentTime);     
+                      masterLimiter.attack.setValueAtTime(0.002, ctx.currentTime);    
+                      masterLimiter.release.setValueAtTime(0.15, ctx.currentTime); 
+
+                      const postGain = ctx.createGain();
+                      postGain.gain.value = 1.0;
+
+                      streamDestRef.current = ctx.createMediaStreamDestination();
+                      
+                      if (audioRef.current) {
+                          sourceRef.current = ctx.createMediaElementSource(audioRef.current);
+                          
+                          sourceRef.current
+                            .connect(preGain)
+                            .connect(hpf).connect(lpf)
+                            .connect(clarity).connect(air)
+                            .connect(bassPunch).connect(bassSub);
+                          
+                          bassSub.connect(analyser);
+
+                          bassSub.connect(masterLimiter);
+                          masterLimiter.connect(postGain);
+
+                          postGain.connect(ctx.destination);
+                          postGain.connect(streamDestRef.current);
+                      }
+                      dsp.current = { preGain, hpf, lpf, clarity, air, bassPunch, bassSub, masterLimiter, postGain };
+                  } catch(e) { console.error("Audio Init Error:", e); }
+              }
+              if (audioCtxRef.current?.state === 'suspended') audioCtxRef.current.resume();
+          };
+
+          useEffect(() => {
+              if(audioCtxRef.current && dsp.current.preGain) {
+                  const now = audioCtxRef.current.currentTime;
+                  const ramp = 0.1;
+
+                  let inputVol = 0.9;
+                  let outputVol = 1.0;
+
+                  if (fxBass) { inputVol = 0.5; outputVol = 1.4; }
+                  if (fxBass && fxClear) { inputVol = 0.45; outputVol = 1.5; }
+                  
+                  dsp.current.preGain.gain.setTargetAtTime(inputVol, now, ramp);
+                  if(dsp.current.postGain) dsp.current.postGain.gain.setTargetAtTime(outputVol, now, ramp);
+
+                  dsp.current.hpf.frequency.setTargetAtTime(fxNoise ? 60 : 20, now, ramp);
+                  dsp.current.lpf.frequency.setTargetAtTime(fxNoise ? 16000 : 22000, now, ramp);
+                  dsp.current.clarity.gain.setTargetAtTime(fxClear ? 5 : 0, now, ramp); 
+                  dsp.current.air.gain.setTargetAtTime(fxClear ? 8 : 0, now, ramp);      
+                  dsp.current.bassPunch.gain.setTargetAtTime(fxBass ? 9.5 : 0, now, ramp); 
+                  dsp.current.bassSub.gain.setTargetAtTime(fxBass ? 9.5 : 0, now, ramp);   
+              }
+          }, [fxNoise, fxBass, fxClear]);
+
+          // --- 3. HELPER DRAWING ---
+          const drawMascot = (ctx, x, y, color, type, bounce, scale, rotation) => {
+              ctx.save();
+              ctx.translate(~~x, ~~y); 
+              ctx.rotate(rotation || 0); 
+              ctx.translate(0, ~~(-bounce)); 
+              ctx.scale(scale, scale); 
+              
+              ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+
+              ctx.fillStyle = color;
+              if (type === 'ROUND') { 
+                  ctx.beginPath(); ctx.arc(0,0, 40, 0, Math.PI*2); ctx.fill(); 
+                  ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.arc(-10,-15, 12, 0, Math.PI*2); ctx.fill();
+              } else { 
+                  ctx.beginPath(); ctx.rect(-35, -35, 70, 70); ctx.fill(); 
+              }
+              ctx.strokeStyle = color; ctx.lineWidth = 6; ctx.lineCap = 'round';
+              ctx.beginPath(); ctx.moveTo(-30, 10); ctx.lineTo(-50, 30); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(30, 10); ctx.lineTo(50, 30); ctx.stroke();
+              ctx.beginPath(); ctx.moveTo(0, -35); ctx.lineTo(0, -60); ctx.stroke();
+              ctx.beginPath(); ctx.arc(0, -65, 6, 0, Math.PI*2); ctx.fillStyle=color; ctx.fill();
+              ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(-12, -5, 10, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(12, -5, 10, 0, Math.PI*2); ctx.fill();
+              ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(-12, -5, 4, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(12, -5, 4, 0, Math.PI*2); ctx.fill();
+              ctx.beginPath(); ctx.arc(0, 8, 8, 0, Math.PI, false); ctx.lineWidth = 3; ctx.strokeStyle = 'black'; ctx.stroke();
+              ctx.restore();
+          };
+
+          const drawCyberBot = (ctx, x, y, color, variant, bounce, scale, rotation) => {
+              ctx.save();
+              ctx.translate(~~x, ~~y); 
+              ctx.rotate(rotation || 0); 
+              ctx.translate(0, ~~(-bounce)); 
+              ctx.scale(scale, scale);
+              
+              ctx.shadowBlur = 0; 
+
+              ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+              ctx.beginPath();
+              if (variant === 0) { 
+                  ctx.rect(-25, -25, 50, 50); ctx.moveTo(-10, -25); ctx.lineTo(-15, -40); ctx.moveTo(10, -25); ctx.lineTo(15, -40);
+              } else if (variant === 1) { 
+                  ctx.arc(0, 0, 28, 0, Math.PI * 2); ctx.moveTo(-20, -20); ctx.lineTo(-30, -35); ctx.moveTo(20, -20); ctx.lineTo(30, -35);
+              } else { 
+                  ctx.rect(-30, -20, 60, 40); ctx.moveTo(0, -20); ctx.lineTo(0, -45);
+              }
+              ctx.moveTo(-25, 0); ctx.lineTo(-45, 15); ctx.moveTo(25, 0); ctx.lineTo(45, 15);
+              ctx.moveTo(-10, 25); ctx.lineTo(-15, 45); ctx.moveTo(10, 25); ctx.lineTo(15, 45);
+              ctx.stroke();
+              ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-10, -5, 6, 0, Math.PI*2); ctx.arc(10, -5, 6, 0, Math.PI*2); ctx.fill();
+              ctx.fillStyle = color; ctx.beginPath(); ctx.arc(-10, -5, 3, 0, Math.PI*2); ctx.arc(10, -5, 3, 0, Math.PI*2); ctx.fill();
+              ctx.restore();
+          };
+
+          // --- 4. LOOP UTAMA ---
+          const loop = () => {
+              reqRef.current = requestAnimationFrame(loop);
+              const now = performance.now();
+              frameCount.current++;
+              if (now - lastTime.current >= 1000) { setFps(frameCount.current); frameCount.current = 0; lastTime.current = now; }
+
+              const canvas = canvasRef.current;
+              if (!canvas) return;
+              
+              const ctx = canvas.getContext('2d', { alpha: false });
+              const s = engine.current;
+              const w = canvas.width; const h = canvas.height;
+              const cx = w/2; const cy = h/2;
+
+              const refSize = 1280;
+              const globalScale = (w / refSize) * (w < h ? 1.5 : 1.0) * s.zoom; 
+
+              if (analyserRef.current) {
+                  let targetSmooth = 0.7 - (s.sensitivity * 0.2); 
+                  analyserRef.current.smoothingTimeConstant = Math.max(0.05, Math.min(0.95, targetSmooth));
+              }
+
+              let dataArray = dataArrayRef.current;
+              let isDemo = false;
+              let kickImpulse = 0;
+
+              if (analyserRef.current && !audioRef.current.paused) {
+                  analyserRef.current.getByteFrequencyData(dataArray);
+                  
+                  let bTotal = 0; 
+                  for(let b=0; b<4; b++) bTotal += dataArray[b]; 
+                  let rawBass = (bTotal / 4) / 255;
+                  
+                  if (rawBass > beatRef.current.threshold && rawBass > beatRef.current.peak) {
+                      beatRef.current.peak = rawBass;
+                      beatRef.current.threshold = rawBass * 0.9; 
+                  } else {
+                      beatRef.current.peak *= 0.85; 
+                      beatRef.current.threshold -= 0.02; 
+                      if (beatRef.current.threshold < 0.4) beatRef.current.threshold = 0.4;
+                  }
+                  kickImpulse = beatRef.current.peak * s.kick;
+              } else {
+                  isDemo = true; anim.current.demoPhase += 0.05; anim.current.angle += 0.01; anim.current.orbitRot += 0.005;
+                  kickImpulse = Math.max(0, Math.sin(anim.current.demoPhase)) * s.kick * 0.5;
+              }
+              
+              anim.current.orbitRot += 0.005;
+
+              const radius = (s.radius * globalScale) + (kickImpulse * 20); 
+
+              // --- LOGIKA MAPPING FREKUENSI (BASS TENGAH, TREBLE LUAR) ---
+              // Fungsi untuk gaya melintang/garis lurus (Horizon, Waveform, dll)
+              const getCenteredFreq = (index, totalBars) => {
+                  if (isDemo) return (Math.abs(Math.sin(index*0.1 + anim.current.demoPhase))*150);
+                  
+                  const centerIndex = totalBars / 2;
+                  // Normalized distance: 0 di tengah, 1 di ujung (kiri/kanan)
+                  let normalizedDist = Math.abs(index - centerIndex) / centerIndex;
+
+                  const minBin = 1;   // Bass
+                  const maxBin = 500; // Treble
+                  
+                  const logMin = Math.log(minBin);
+                  const logMax = Math.log(maxBin);
+                  
+                  // Semakin dekat ke tengah (normalizedDist mendekati 0), semakin rendah frekuensinya (binIndex kecil)
+                  // Semakin jauh dari tengah (normalizedDist mendekati 1), semakin tinggi frekuensinya (binIndex besar)
+                  const targetLog = logMin + normalizedDist * (logMax - logMin);
+                  const binIndex = Math.floor(Math.exp(targetLog));
+                  
+                  let val = dataArray[binIndex] || 0;
+                  
+                  // Tambahkan boost sedikit untuk treble agar tidak tenggelam
+                  const boost = 1 + (normalizedDist * 1.5); 
+                  return val * boost; 
+              };
+
+              // Fungsi untuk gaya melingkar (Circle, Sunburst, dll)
+              // Logikanya sama: index 0 (biasanya di atas/tengah) adalah bass, lalu menjalar
+              const getSmartFreq = (index, totalBars) => {
+                  if (isDemo) return (Math.abs(Math.sin(index*0.1 + anim.current.demoPhase))*150);
+                  
+                  // Agar bass ada di titik awal lingkaran dan treble di akhir (atau tengah kalau simetris)
+                  // Kita pakai logika simetris untuk lingkaran juga biar lebih bagus (bass di kutub utara/selatan, treble di ekuator)
+                  const centerIndex = totalBars / 2;
+                  let normalizedDist = Math.abs(index - centerIndex) / centerIndex;
+                  // Invert jarak agar Bass ada di index 0 dan totalBars (Ujung-ujung array yang bertemu di lingkaran)
+                  normalizedDist = 1 - normalizedDist;
+
+                  const minBin = 1; const maxBin = 500; 
+                  const logMin = Math.log(minBin); const logMax = Math.log(maxBin);
+                  
+                  const targetLog = logMin + normalizedDist * (logMax - logMin);
+                  const binIndex = Math.floor(Math.exp(targetLog));
+                  
+                  let val = dataArray[binIndex] || 0;
+                  const boost = 1 + (normalizedDist * 1.5); 
+                  return val * boost; 
+              };
+
+              ctx.setTransform(1,0,0,1,0,0);
+              ctx.fillStyle = '#050505'; 
+              ctx.fillRect(0,0,w,h);
+
+              if (s.shake > 0 && kickImpulse > 0.4) {
+                  const shakeMag = s.shake * 15 * kickImpulse; 
+                  ctx.translate((Math.random()-0.5)*shakeMag, (Math.random()-0.5)*shakeMag);
+              }
+
+              if (bgImgRef.current && bgImgRef.current.complete && bgImgRef.current.naturalWidth > 0) {
+                  try {
+                      const imgRatio = bgImgRef.current.width / bgImgRef.current.height;
+                      const canvasRatio = w / h;
+                      let dW, dH, dX, dY;
+                      if (imgRatio > canvasRatio) { 
+                          dH = h; dW = h * imgRatio; dX = (w - dW) / 2; dY = 0; 
+                      } else { 
+                          dW = w; dH = w / imgRatio; dX = 0; dY = (h - dH) / 2; 
+                      }
+                      ctx.drawImage(bgImgRef.current, ~~dX, ~~dY, ~~dW, ~~dH);
+                      ctx.fillStyle = `rgba(${Math.floor((1-s.bgDim)*30)},${Math.floor((1-s.bgDim)*30)},${Math.floor((1-s.bgDim)*30)},${s.bgDim})`; 
+                      ctx.fillRect(0,0,w,h);
+                  } catch(err) {}
+              }
+
+              ctx.translate(~~cx, ~~cy); 
+              const mult = s.height * s.amplitude * globalScale; 
+              const thick = s.thick * globalScale;
+
+              try {
+                  switch (s.style) {
+                      case 'PARTICLE_MASCOT': {
+                          ctx.save(); ctx.translate(0, ~~(-60 * globalScale)); 
+                          const pm = 1 + (kickImpulse * 0.15); 
+                          ctx.scale(pm * s.size * globalScale, pm * s.size * globalScale);
+                          ctx.beginPath();
+                          ctx.moveTo(-100, -100); ctx.lineTo(-60, -40); ctx.quadraticCurveTo(-100, 40, -60, 100); ctx.quadraticCurveTo(0, 130, 60, 100); ctx.quadraticCurveTo(100, 40, 60, -40); ctx.lineTo(100, -100); ctx.lineTo(40, -60); ctx.quadraticCurveTo(0, -40, -40, -60); ctx.closePath();
+                          ctx.moveTo(-60, 100); ctx.bezierCurveTo(-150, 150, -180, 300, -100, 400); ctx.moveTo(60, 100); ctx.bezierCurveTo(150, 150, 180, 300, 100, 400); 
+                          ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)'; ctx.lineWidth = 3;
+                          if(ctx.setLineDash) ctx.setLineDash([4, 6]); ctx.stroke(); if(ctx.setLineDash) ctx.setLineDash([]);
+                          ctx.strokeStyle = '#ff00ff'; ctx.lineWidth = 5; 
+                          ctx.beginPath(); ctx.arc(-40, 0, 35, 0, Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(40, 0, 35, 0, Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(5, 0); ctx.stroke(); 
+                          ctx.restore();
+
+                          const barsM = 42; const wBarM = w / barsM; const startXM = -w / 2; const bottomY = ~~(h/2) - ~~(60 * globalScale);
+                          for(let i=0; i<barsM; i++) {
+                              // Pakai getCenteredFreq untuk melintang
+                              const val = getCenteredFreq(i, barsM); const hb = (val/255) * 150 * mult; const x = startXM + (i * wBarM);
+                              const normalizedDist = Math.abs(i - (barsM/2)) / (barsM/2);
+                              const hue = 180 + (normalizedDist * 60); 
+                              ctx.fillStyle = `hsl(${hue}, 100%, 60%)`;
+                              ctx.fillRect(~~x, bottomY - ~~hb, ~~wBarM-1, ~~hb); ctx.fillStyle = `hsla(${hue}, 100%, 60%, 0.2)`; ctx.fillRect(~~x, bottomY + 2, ~~wBarM-1, ~~(hb * 0.5));
+                          }
+                          
+                          const bCircle = 40; 
+                          const stepC = (Math.PI*2) / bCircle; 
+                          ctx.strokeStyle = 'white'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0,0, radius, 0, Math.PI*2); ctx.stroke();
+                          
+                          ctx.beginPath();
+                          ctx.lineWidth = 4; 
+                          for(let i=0; i<bCircle; i++) {
+                              // Pakai getSmartFreq untuk melingkar
+                              const val = getSmartFreq(i, bCircle); 
+                              const hBar = 5 + (val/255) * 40 * mult;
+                              const angle = i * stepC;
+                              const x1 = Math.cos(angle) * (radius + 2);
+                              const y1 = Math.sin(angle) * (radius + 2);
+                              const x2 = Math.cos(angle) * (radius + 2 + hBar);
+                              const y2 = Math.sin(angle) * (radius + 2 + hBar);
+                              ctx.moveTo(x1, y1);
+                              ctx.lineTo(x2, y2);
+                          }
+                          ctx.strokeStyle = 'white';
+                          ctx.stroke();
+                          break;
+                      }
+                      case 'RADIANT_SUN': {
+                          const rays = 50; const rayStep = (Math.PI*2)/rays; const sRot = -Math.PI/2; ctx.lineCap = 'round';
+                          for (let i = 0; i < rays; i++) {
+                              const val = getSmartFreq(i, rays);
+                              let lMult = 1; if (i % 10 === 0) lMult = 2.5; else if (i % 5 === 0) lMult = 1.8;
+                              const hb = (50 * lMult * globalScale) + ((val / 255) * 200 * mult * lMult);
+                              ctx.save(); ctx.rotate(sRot + (i * rayStep)); const hue = (i / rays) * 360; 
+                              ctx.strokeStyle = `hsl(${hue}, 100%, 60%)`; ctx.lineWidth = thick * 2; 
+                              ctx.beginPath(); ctx.moveTo(radius, 0); ctx.lineTo(radius + hb, 0); ctx.stroke();
+                              if (lMult > 1.5 && val > 120) { ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(radius + hb + (10*globalScale), 0, 3*globalScale, 0, Math.PI*2); ctx.fill(); }
+                              ctx.restore();
+                          }
+                          ctx.beginPath(); ctx.arc(0, 0, radius - 5, 0, Math.PI * 2); ctx.fillStyle = '#000'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = '#FFF'; ctx.stroke();
+                          break;
+                      }
+                      case 'CYBER_RING': {
+                          const botCount = 12; const ringRad = radius + (60 * globalScale); ctx.beginPath(); ctx.arc(0, 0, ringRad, 0, Math.PI*2); ctx.strokeStyle = '#00f3ff'; ctx.lineWidth = 3; ctx.stroke();
+                          for(let i=0; i<botCount; i++) {
+                              const angle = (i / botCount) * Math.PI * 2 + anim.current.orbitRot - (Math.PI/2); 
+                              // Menggunakan getSmartFreq untuk melingkar
+                              const jump = (getSmartFreq(i*5, 60) / 255) * 50 * mult; const dist = ringRad + jump; 
+                              const rx = Math.cos(angle) * dist; const ry = Math.sin(angle) * dist;
+                              const neonColors = ['#ff00ff', '#ffaa00', '#00f3ff']; const col = neonColors[i % 3];
+                              drawCyberBot(ctx, rx, ry, col, i % 3, 0, 0.5 * s.size * globalScale, angle + Math.PI/2); 
+                          }
+                          ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.strokeStyle = 'white'; ctx.lineWidth = 4; ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, radius - 15, 0, Math.PI*2); ctx.lineWidth = 2; ctx.stroke();
+                          break;
+                      }
+                      case 'ORBIT_PARTY': {
+                          const points = 180; const oRot = -Math.PI/2; const rPath = new Path2D();
+                          const sVal = getSmartFreq(0, points); const sH = (sVal/255) * 180 * mult; 
+                          rPath.moveTo(Math.cos(oRot)*(radius+sH), Math.sin(oRot)*(radius+sH));
+                          for(let i=1; i<=points; i++) {
+                              const val = (getSmartFreq(i, points) + getSmartFreq((i+1)%points, points)) / 2; const hb = (val/255) * 180 * mult; const ang = (i / points) * Math.PI * 2 + oRot; rPath.lineTo(Math.cos(ang)*(radius+hb), Math.sin(ang)*(radius+hb));
+                          }
+                          rPath.closePath();
+                          let grad = 'cyan';
+                          try { if (ctx.createConicGradient) { grad = ctx.createConicGradient(oRot, 0, 0); grad.addColorStop(0, 'red'); grad.addColorStop(0.16, 'orange'); grad.addColorStop(0.33, 'yellow'); grad.addColorStop(0.5, 'green'); grad.addColorStop(0.66, 'cyan'); grad.addColorStop(0.83, 'blue'); grad.addColorStop(1, 'red'); } } catch(e){}
+                          ctx.strokeStyle = grad; ctx.lineWidth = 6; ctx.lineJoin = 'round'; ctx.stroke(rPath);
+                          
+                          // Gelombang bawah melintang
+                          ctx.beginPath(); ctx.moveTo(-w/3, 0); 
+                          for(let i=0; i<=100; i+=4) { 
+                              const val = getCenteredFreq(i, 100); // Pakai centered untuk melintang
+                              const y = ((val/255)-0.5) * 80 * mult; ctx.lineTo((-w/3) + (i * ((w*0.66)/100)), y); 
+                          } 
+                          ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 2; ctx.stroke();
+                          
+                          if (s.showMascot) {
+                              const mCount = 12;
+                              for(let i=0; i<mCount; i++) {
+                                  const angle = (i / mCount) * Math.PI * 2 + oRot + anim.current.orbitRot; const hue = (i / mCount) * 360; const ptIdx = Math.floor((i/mCount) * points) % points; const val = getSmartFreq(ptIdx, points); const jump = (val / 255) * 180 * mult; const dist = radius + jump + 45; const mx = Math.cos(angle) * dist; const my = Math.sin(angle) * dist; drawMascot(ctx, mx, my, `hsl(${hue}, 100%, 50%)`, i % 2 === 0 ? 'ROUND' : 'BOX', 0, 0.35 * s.size * globalScale, angle + Math.PI/2);
+                              }
+                          }
+                          break;
+                      }
+                      case 'PARTY_VIBES': {
+                          const barsP = 42; const wBar = (w / barsP) / 1.5;
+                          for(let i=0; i<barsP; i++) {
+                              const val = getCenteredFreq(i, barsP); const hBar = Math.max(10, (val/255) * 400 * mult); 
+                              const xPos = radius + (20*globalScale) + (i * (wBar+4)); 
+                              const normalizedDist = Math.abs(i - (barsP/2)) / (barsP/2);
+                              const hue = (normalizedDist * 60) + (frameCount.current); 
+                              ctx.fillStyle = `hsl(${hue}, 100%, 50%)`; ctx.fillRect(xPos, -hBar/2, wBar, hBar); ctx.fillRect(-xPos - wBar, -hBar/2, wBar, hBar); ctx.fillStyle = `hsla(${hue}, 100%, 50%, 0.2)`; ctx.fillRect(xPos, hBar/2 + 5, wBar, hBar/2); ctx.fillRect(-xPos - wBar, hBar/2 + 5, wBar, hBar/2);
+                          }
+                          if (s.showMascot) {
+                              const mascotColors = ['#FF0055', '#FFDD00', '#00FF99', '#00BBFF', '#AA00FF', '#FF5500', '#00FF00'];
+                              const mCount = 7; const spacing = 140 * globalScale; const startX = -((mCount-1) * spacing) / 2;
+                              for(let i=0; i<mCount; i++) { const jump = (getCenteredFreq(i*10, 70) / 255) * 80 * mult; drawMascot(ctx, startX + (i*spacing), 250 * globalScale, mascotColors[i], i%2===0?'ROUND':'BOX', jump, 0.6 * s.size * globalScale); }
+                          }
+                          const pR = radius + (kickImpulse * 10); ctx.beginPath(); ctx.arc(0,0, pR, 0, Math.PI*2); ctx.fillStyle = '#111'; ctx.fill(); ctx.lineWidth = 8; ctx.strokeStyle = `hsl(${frameCount.current * 2}, 100%, 70%)`; ctx.stroke();
+                          break;
+                      }
+                      case 'HORIZON': {
+                          const bH = 50; const wBH = w / bH; const sXH = -w / 2; const hY = 180 * globalScale; 
+                          ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-w/2, hY); ctx.lineTo(w/2, hY); ctx.stroke();
+                          for(let i=0; i<bH; i++) { 
+                              const val = getCenteredFreq(i, bH); const hb = (val/255)*350*mult; const x = sXH + (i * wBH);
+                              const normalizedDist = Math.abs(i - (bH/2)) / (bH/2);
+                              ctx.fillStyle = `hsl(${normalizedDist*60}, 100%, 50%)`; ctx.fillRect(x, hY - hb, wBH-1, hb); ctx.fillStyle = `hsla(${normalizedDist*60}, 100%, 50%, 0.3)`; ctx.fillRect(x, hY, wBH-1, hb*0.5); 
+                          }
+                          break;
+                      }
+                      case 'SUNBURST_PRO': {
+                          const bS = 64; const stepS = (Math.PI*2)/bS;
+                          ctx.beginPath();
+                          ctx.lineWidth = thick;
+                          for(let i=0; i<bS; i++) {
+                              const val = getSmartFreq(i, bS); 
+                              const hb = Math.max(5, (val/255)*250*mult);
+                              const angle = i * stepS;
+                              const x1 = Math.cos(angle) * radius;
+                              const y1 = Math.sin(angle) * radius;
+                              const x2 = Math.cos(angle) * (radius + hb);
+                              const y2 = Math.sin(angle) * (radius + hb);
+                              ctx.strokeStyle = `hsl(${(i/bS)*300}, 100%, 50%)`;
+                              ctx.beginPath();
+                              ctx.moveTo(x1, y1);
+                              ctx.lineTo(x2, y2);
+                              ctx.stroke();
+                          }
+                          break;
+                      }
+                      case 'NEON_WORLD': {
+                          ctx.beginPath(); ctx.moveTo(-(radius+20), 0);
+                          for(let i=0; i<40; i++) { const hb = (getCenteredFreq(i, 40)/255)*120*mult; ctx.lineTo(-(radius+20)-(i*8), (i%2===0?1:-1)*hb); }
+                          ctx.moveTo(radius+20, 0); for(let i=0; i<40; i++) { const hb = (getCenteredFreq(i, 40)/255)*120*mult; ctx.lineTo(radius+20+(i*8), (i%2===0?1:-1)*hb); }
+                          ctx.strokeStyle='cyan'; ctx.lineWidth=2; ctx.stroke();
+                          const bN=50; const sN=(Math.PI*2)/bN; for(let i=0; i<bN; i++) { ctx.save(); ctx.rotate(i*sN); ctx.fillStyle=`hsl(${i*6}, 100%, 50%)`; ctx.fillRect(-2, radius, 4, (getSmartFreq(i, bN)/255)*80*mult); ctx.restore(); }
+                          break;
+                      }
+                      case 'SPECTRUM_AI': {
+                           const p=140; const sA=(Math.PI*2)/p; ctx.beginPath();
+                           for(let i=0; i<=p; i++) { const ang = i*sA - Math.PI/2; const val = getSmartFreq(i, p); const r = radius + (val/255)*200*mult; const x = Math.cos(ang)*r; const y = Math.sin(ang)*r; if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+                           ctx.closePath(); ctx.fillStyle='rgba(0,255,255,0.4)'; ctx.fill(); ctx.strokeStyle='white'; ctx.lineWidth=2; ctx.stroke();
+                           break;
+                      }
+                      case 'HEXAGON': {
+                          for(let l=0; l<3; l++) { ctx.save(); ctx.rotate(anim.current.hexRot * (l%2===0?1:-1)); ctx.beginPath(); for(let i=0; i<=6; i++) { const val = getSmartFreq(i * 10, 60); const r = radius + (l*30) + (val/255)*50*mult; const a = i * (Math.PI*2/6); ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r); } ctx.closePath(); ctx.strokeStyle = `hsl(${l*60}, 100%, 50%)`; ctx.lineWidth=4; ctx.stroke(); ctx.restore(); }
+                          break;
+                      }
+                      case 'WAVEFORM_PRO': {
+                          const pts = 80; const step = w / pts; const startX = -w/2;
+                          ctx.beginPath(); ctx.lineWidth = thick * 1.5; ctx.strokeStyle = `hsl(${kickImpulse * 100}, 100%, 50%)`;
+                          for(let i=0; i<=pts; i++) {
+                              const val = getCenteredFreq(i, pts); const y = (val/255) * 250 * mult * (i%2===0?1:-1);
+                              if(i===0) ctx.moveTo(startX, y); else ctx.lineTo(startX + (i*step), y);
+                          }
+                          ctx.stroke();
+                          ctx.beginPath(); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+                          ctx.moveTo(-w/2, 0); ctx.lineTo(w/2, 0); ctx.stroke();
+                          break;
+                      }
+                      case 'DIAMOND_CORE': {
+                          ctx.rotate(anim.current.hexRot);
+                          const sides = 4; const sD = (Math.PI*2)/sides;
+                          for(let j=0; j<4; j++) {
+                              ctx.beginPath(); ctx.lineWidth = thick; ctx.strokeStyle = `hsl(${j*40}, 100%, 60%)`;
+                              for(let i=0; i<=sides; i++) {
+                                  const val = getSmartFreq(j*10 + i*5, 60); const r = radius + (j*30) + (val/255)*100*mult;
+                                  const a = i * sD; ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+                              }
+                              ctx.closePath(); ctx.stroke();
+                          }
+                          break;
+                      }
+                      case 'PULSE_RING': {
+                          const bC = 60; const sC = (Math.PI*2)/bC; 
+                          ctx.beginPath(); ctx.arc(0,0, radius, 0, Math.PI*2); ctx.strokeStyle='white'; ctx.lineWidth=4; ctx.stroke();
+                          ctx.beginPath(); ctx.arc(0,0, radius + 20 + (kickImpulse*50), 0, Math.PI*2); ctx.strokeStyle='rgba(0, 255, 255, 0.5)'; ctx.lineWidth=2; ctx.stroke();
+                          for(let i=0; i<bC; i++) { 
+                              const val = getSmartFreq(i, bC); const d = radius + 30 + (kickImpulse*50) + (val/255)*100*mult;
+                              const a = i*sC; ctx.fillStyle = `hsl(${i*6}, 100%, 50%)`;
+                              ctx.beginPath(); ctx.arc(Math.cos(a)*d, Math.sin(a)*d, thick, 0, Math.PI*2); ctx.fill();
+                          }
+                          break;
+                      }
+                      case 'DIGITAL_RAIN': {
+                          const drops = 50; const wDrop = w/drops; const sX = -w/2;
+                          for(let i=0; i<drops; i++) {
+                              const val = getCenteredFreq(i, drops); const hD = (val/255)*400*mult;
+                              ctx.fillStyle = `hsl(120, 100%, ${Math.max(20, (val/255)*100)}%)`; 
+                              ctx.fillRect(sX + (i*wDrop), -h/2, wDrop-2, hD);
+                              if (val > 100) { ctx.fillStyle = 'white'; ctx.fillRect(sX + (i*wDrop), -h/2 + hD, wDrop-2, 5); }
+                          }
+                          break;
+                      }
+                      case 'DUAL_MIRROR': {
+                          const bM = 50; const wBM = w/bM; const sXM = -w/2;
+                          for(let i=0; i<bM; i++) {
+                              const val = getCenteredFreq(i, bM); const hb = (val/255)*200*mult; const x = sXM + (i * wBM);
+                              ctx.fillStyle = `hsl(${200 + (i/bM)*60}, 100%, 50%)`;
+                              ctx.fillRect(x, -2 - Math.max(2, hb), wBM-1, Math.max(2, hb)); 
+                              ctx.fillStyle = `hsla(${200 + (i/bM)*60}, 100%, 50%, 0.5)`;
+                              ctx.fillRect(x, 2, wBM-1, Math.max(2, hb)); 
+                          }
+                          ctx.beginPath(); ctx.moveTo(-w/2, 0); ctx.lineTo(w/2, 0); ctx.strokeStyle='white'; ctx.lineWidth=2; ctx.stroke();
+                          break;
+                      }
+                      default: { // CIRCLE BARS
+                           const bC = 60; const sC = (Math.PI*2)/bC; for(let i=0; i<bC; i++) { ctx.save(); ctx.rotate(i*sC); ctx.fillStyle=`hsl(${i*4}, 100%, 50%)`; ctx.fillRect(-thick, radius, thick*2, (getSmartFreq(i, bC)/255)*180*mult); ctx.restore(); }
+                      }
+                  }
+              } catch (e) { console.error("Visual Error:", e); }
+
+              if (s.showMascot && !['PARTY_VIBES', 'ORBIT_PARTY', 'CYBER_RING', 'RADIANT_SUN', 'PARTICLE_MASCOT'].includes(s.style)) {
+                  const b = kickImpulse * 60; 
+                  drawMascot(ctx, -350 * globalScale, -150 * globalScale, '#D600A4', 'ROUND', b, s.size * globalScale);
+                  drawMascot(ctx, 350 * globalScale, -150 * globalScale, '#0088CC', 'BOX', b, s.size * globalScale);
+                  drawMascot(ctx, -350 * globalScale, 150 * globalScale, '#DDAA00', 'BOX', b, s.size * globalScale);
+                  drawMascot(ctx, 350 * globalScale, 150 * globalScale, '#7700AA', 'ROUND', b, s.size * globalScale);
+              }
+
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(0, 0, radius, 0, Math.PI*2);
+              ctx.clip();
+
+              if(logoImgRef.current && logoImgRef.current.complete && logoImgRef.current.naturalWidth > 0) {
+                  ctx.drawImage(logoImgRef.current, -radius, -radius, radius*2, radius*2);
+              } else { 
+                  ctx.fillStyle = '#111';
+                  ctx.fillRect(-radius, -radius, radius*2, radius*2);
+                  ctx.fillStyle = 'white'; 
+                  ctx.textAlign = 'center'; 
+                  ctx.textBaseline = 'middle'; 
+                  ctx.font = `${radius * 0.5}px Arial`;
+                  const char = ['PARTY_VIBES', 'CYBER_RING', 'ORBIT_PARTY'].includes(s.style) ? "♫" : (s.style==='RADIANT_SUN'?'LOGO':(s.style==='PARTICLE_MASCOT'?'🤖':'☁'));
+                  ctx.fillText(char, 0, radius * 0.1);
+              }
+              
+              try { 
+                  const g = ctx.createRadialGradient(0,0,radius*0.85, 0,0,radius); 
+                  g.addColorStop(0, 'rgba(0,0,0,0)'); 
+                  g.addColorStop(1, 'rgba(0,0,0,0.6)'); 
+                  ctx.fillStyle = g; 
+                  ctx.beginPath(); ctx.arc(0,0,radius,0,Math.PI*2); ctx.fill();
+              } catch(e) {}
+
+              ctx.restore(); 
+          };
+
+          // --- ACTIONS ---
+          const handleStyle = (mode) => { setActiveStyle(mode); engine.current.style = mode; };
+          const handleMascot = () => { setActiveMascot(!activeMascot); engine.current.showMascot = !activeMascot; };
+          const handleRatio = (val) => { 
+              setRatio(val); 
+              engine.current.ratioMode = val; 
+          };
+          const handleFile = (e) => {
+              const files = Array.from(e.target.files);
+              const newPlaylist = files.map(f => ({ name: f.name, url: URL.createObjectURL(f) }));
+              setPlaylist(prev => [...prev, ...newPlaylist]);
+              if (currentSongIndex === -1) {
+                  setCurrentSongIndex(0);
+                  if (audioRef.current) audioRef.current.src = newPlaylist[0].url;
+              }
+          };
+          const togglePlay = () => {
+              if(!audioRef.current) return;
+              initAudio();
+              if(isPlaying) { audioRef.current.pause(); setIsPlaying(false); }
+              else { audioRef.current.play(); setIsPlaying(true); }
+          };
+
+          const startRec = async () => {
+              if(!playlist.length) return;
+              initAudio();
+              setCurrentSongIndex(0);
+              if(audioRef.current) {
+                  audioRef.current.src = playlist[0].url;
+                  audioRef.current.currentTime = 0;
+                  audioRef.current.play();
+                  setIsPlaying(true);
+              }
+
+              recStartTimeRef.current = Date.now();
+
+              const stream = canvasRef.current.captureStream(60); 
+              const audioTrack = streamDestRef.current.stream.getAudioTracks()[0];
+              const combined = new MediaStream([...stream.getVideoTracks(), audioTrack]);
+
+              const opts = { mimeType: 'video/webm;codecs=vp8', videoBitsPerSecond: 3500000, audioBitsPerSecond: 128000 };
+
+              try {
+                  const recorder = new MediaRecorder(combined, opts);
+                  chunksRef.current = [];
+                  recorder.ondataavailable = e => { if(e.data.size > 0) chunksRef.current.push(e.data); };
+                  
+                  recorder.onstop = () => {
+                      const durationInMillis = Date.now() - recStartTimeRef.current;
+                      const originalBlob = new Blob(chunksRef.current, { type: 'video/webm' });
+                      
+                      const downloadBlob = (blobToDownload) => {
+                          const url = URL.createObjectURL(blobToDownload);
+                          const a = document.createElement('a'); 
+                          a.style.display = 'none';
+                          a.href = url; 
+                          a.download = `Visualizer_HD_${Date.now()}.webm`; 
+                          document.body.appendChild(a); 
+                          a.click();
+                          
+                          setTimeout(() => {
+                              document.body.removeChild(a);
+                              URL.revokeObjectURL(url);
+                              chunksRef.current = [];
+                              stream.getVideoTracks().forEach(track => track.stop());
+                              mediaRecorderRef.current = null;
+                          }, 500); 
+                      };
+
+                      if (window.ysFixWebmDuration) {
+                          window.ysFixWebmDuration(originalBlob, durationInMillis, (fixedBlob) => {
+                              downloadBlob(fixedBlob);
+                          });
+                      } else {
+                          downloadBlob(originalBlob);
+                      }
+                  };
+                  
+                  recorder.start(); 
+                  
+                  mediaRecorderRef.current = recorder;
+                  setIsRecording(true);
+                  setRecTime(0);
+                  timerRef.current = setInterval(() => setRecTime(c => c + 1), 1000);
+              } catch (err) { console.error("Rec failed:", err); }
+          };
+
+          const stopRec = () => {
+              if(mediaRecorderRef.current) { mediaRecorderRef.current.stop(); setIsRecording(false); }
+              if(timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+              setRecTime(0);
+          };
+          
+          const setAmplitude = (val) => {
+              setActiveWidthMode(val);
+              const ampMap = { 'MICRO': 0.25, 'TIPIS': 0.5, 'NORMAL': 1.0, 'LEBAR': 1.5 };
+              engine.current.amplitude = ampMap[val] || 1.0;
+          };
+
+          return (
+            <div className="flex flex-col h-screen bg-[#050505] text-white font-sans overflow-hidden">
+              
+              {/* 1. LAYAR UTAMA (FIXED CONTAINER) */}
+              <div className={`shrink-0 relative w-full bg-black border-b border-gray-800 flex justify-center items-center shadow-2xl overflow-hidden`} style={{aspectRatio:'16/9'}}>
+                  {/* Canvas Ukuran Dinamis (720x1280 untuk Vertikal HD) */}
+                  <canvas 
+                    ref={canvasRef} 
+                    width={ratio === '16:9' ? 1280 : 720} 
+                    height={ratio === '16:9' ? 720 : 1280} 
+                    className="h-full w-auto object-contain bg-black shadow-2xl"
+                  />
+                  <div className="absolute top-2 left-2 bg-black/60 px-2 rounded text-[10px] text-green-400 font-bold border border-green-500/30">{fps} FPS</div>
+                  {isRecording && <div className="absolute top-2 right-2 bg-red-600 px-2 py-1 rounded text-xs animate-pulse">REC {recTime}s</div>}
+              </div>
+
+              {/* 2. AREA SCROLL */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-5 pb-24 bg-[#0a0a0a]">
+                  
+                  <div className="bg-[#111] p-4 rounded-xl border border-gray-800">
+                      <div className="text-xs font-bold text-gray-400 mb-3 flex items-center gap-2"><Layers size={14}/> PILIH GAYA (16)</div>
+                      <div className="grid grid-cols-4 gap-2">
+                          {visualModes.map(m => (
+                              <button key={m.id} onClick={() => { setActiveStyle(m.id); engine.current.style = m.id; }} className={`aspect-square rounded border flex flex-col items-center justify-center gap-1 ${activeStyle===m.id ? 'bg-indigo-900 border-indigo-500 text-white' : 'bg-black border-gray-700 text-gray-500'}`}>
+                                  <m.icon size={20}/>
+                                  <span className="text-[8px] font-bold text-center px-1">{m.label}</span>
+                              </button>
+                          ))}
+                      </div>
+                  </div>
+
+                  <div className="bg-[#0e0e0e] p-3 rounded-lg border border-gray-800">
+                      <div className="text-xs font-bold text-gray-400 mb-2 flex items-center gap-2"><Settings size={12}/> AUDIO FX</div>
+                      <div className="grid grid-cols-3 gap-3">
+                         <button onClick={() => setFxNoise(!fxNoise)} className={`py-3 rounded flex flex-col items-center justify-center gap-1 text-[9px] font-bold transition-all ${fxNoise ? 'bg-green-600 text-white shadow-lg' : 'bg-[#1a1a1a] text-gray-400'}`}>
+                             <MicOff size={14}/> NOISE REDUCT
+                         </button>
+                         <button onClick={() => setFxBass(!fxBass)} className={`py-3 rounded flex flex-col items-center justify-center gap-1 text-[9px] font-bold transition-all ${fxBass ? 'bg-red-600 text-white shadow-lg' : 'bg-[#1a1a1a] text-gray-400'}`}>
+                             <Speaker size={14}/> BASS BOOST
+                         </button>
+                         <button onClick={() => setFxClear(!fxClear)} className={`py-3 rounded flex flex-col items-center justify-center gap-1 text-[9px] font-bold transition-all ${fxClear ? 'bg-blue-600 text-white shadow-lg' : 'bg-[#1a1a1a] text-gray-400'}`}>
+                             <Sparkles size={14}/> SOUND CLEAN
+                         </button>
+                      </div>
+                  </div>
+
+                  <div className="bg-[#111] p-3 rounded-lg border border-gray-800 flex items-center gap-3">
+                       <div className="w-10 h-10 bg-indigo-600 rounded flex items-center justify-center"><Music size={20} className="text-white"/></div>
+                       <div className="flex-1 min-w-0">
+                           <div className="text-[9px] text-gray-500">NOW PLAYING</div>
+                           <div className="text-xs font-bold truncate">{playlist[currentSongIndex]?.name || "Pilih Lagu..."}</div>
+                       </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2">
+                      <button onClick={togglePlay} className="col-span-2 py-3 bg-white text-black rounded-lg font-bold flex items-center justify-center gap-2">{isPlaying ? <Pause size={18}/> : <Play size={18}/>} {isPlaying ? "PAUSE" : "PLAY"}</button>
+                      <button onClick={() => audioInputRef.current.click()} className="col-span-2 py-3 bg-[#222] border border-gray-600 rounded-lg text-xs font-bold flex items-center justify-center gap-2"><Plus size={16}/> LAGU</button>
+                      <button onClick={() => bgInputRef.current.click()} className="py-3 bg-[#1a1a1a] border border-gray-700 rounded-lg flex flex-col items-center justify-center gap-1 text-gray-400"><ImageIcon size={16}/> <span className="text-[8px]">BG</span></button>
+                      <button onClick={() => logoInputRef.current.click()} className="py-3 bg-[#1a1a1a] border border-gray-700 rounded-lg flex flex-col items-center justify-center gap-1 text-gray-400"><Circle size={16}/> <span className="text-[8px]">LOGO</span></button>
+                      <button onClick={() => { setActiveMascot(!activeMascot); engine.current.showMascot = !activeMascot; }} className={`py-3 border border-gray-700 rounded-lg flex flex-col items-center justify-center gap-1 ${activeMascot?'bg-pink-900 text-white':'bg-[#1a1a1a] text-gray-500'}`}><Smile size={16}/> <span className="text-[8px]">MASKOT</span></button>
+                      <button onClick={() => setShowSettings(!showSettings)} className={`py-3 border border-gray-700 rounded-lg flex flex-col items-center justify-center gap-1 ${showSettings?'bg-green-900 text-white':'bg-[#1a1a1a] text-gray-500'}`}><Sliders size={16}/> <span className="text-[8px]">ATUR</span></button>
+                      <button onClick={isRecording ? stopRec : startRec} className={`col-span-4 py-3 rounded-lg font-bold flex items-center justify-center gap-2 ${isRecording?'bg-red-600 text-white animate-pulse':'bg-indigo-600 text-white'}`}>{isRecording ? <Square size={16}/> : <Video size={16}/>} {isRecording ? "STOP REKAM" : "REKAM VIDEO"}</button>
+                  </div>
+
+                  {showSettings && (
+                      <div className="bg-[#0e0e0e] p-4 rounded-xl border border-gray-800 animate-in slide-in-from-top-2 text-[10px] space-y-4">
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                              <div className="col-span-2 flex items-center justify-between bg-black p-2 rounded border border-gray-700">
+                                  <span className="text-gray-400 font-bold flex items-center gap-2"><Smartphone size={12}/> RESOLUSI VIDEO</span>
+                                  <div className="flex gap-2">
+                                     <button onClick={() => { setRatio('16:9'); engine.current.ratioMode='16:9'; }} className={`px-3 py-1 rounded ${ratio==='16:9' ? 'bg-blue-600':'bg-gray-800'}`}>16:9</button>
+                                     <button onClick={() => { setRatio('9:16'); engine.current.ratioMode='9:16'; }} className={`px-3 py-1 rounded ${ratio==='9:16' ? 'bg-blue-600':'bg-gray-800'}`}>9:16</button>
+                                  </div>
+                              </div>
+                              <div><span>ZOOM PUSAT</span><input type="range" min="0.2" max="3.0" step="0.1" defaultValue={1} onChange={e => engine.current.zoom = parseFloat(e.target.value)} className="w-full h-1 appearance-none bg-gray-700 rounded" /></div>
+                              
+                              <div><span>TEBAL</span><input type="range" min="1" max="10" step="0.5" defaultValue={4} onChange={e => engine.current.thick = parseFloat(e.target.value)} className="w-full h-1 appearance-none bg-gray-700 rounded" /></div>
+                              <div><span>KICK</span><input type="range" min="0" max="5" step="0.1" defaultValue={1.5} onChange={e => engine.current.kick = parseFloat(e.target.value)} className="w-full h-1 appearance-none bg-gray-700 rounded" /></div>
+                              <div><span>SPEED</span><input type="range" min="0.1" max="2" step="0.1" defaultValue={1.0} onChange={e => engine.current.sensitivity = parseFloat(e.target.value)} className="w-full h-1 appearance-none bg-gray-700 rounded" /></div>
+                              <div><span>SIZE (MASKOT)</span><input type="range" min="0.5" max="2" step="0.1" defaultValue={1} onChange={e => engine.current.size = parseFloat(e.target.value)} className="w-full h-1 appearance-none bg-gray-700 rounded" /></div>
+                              <div><span>SHAKE</span><input type="range" min="0" max="1" step="0.1" defaultValue={0} onChange={e => engine.current.shake = parseFloat(e.target.value)} className="w-full h-1 appearance-none bg-gray-700 rounded" /></div>
+                              <div className="col-span-2"><span>GELAP BG</span><input type="range" min="0" max="0.95" step="0.05" defaultValue={0.9} onChange={e => engine.current.bgDim = parseFloat(e.target.value)} className="w-full h-1 appearance-none bg-gray-700 rounded" /></div>
+                          </div>
+                          <div className="pt-3 border-t border-gray-800">
+                              <div className="flex items-center gap-2 text-purple-400 font-bold mb-2"><Activity size={12}/> AMPLITUDO</div>
+                              <div className="flex bg-black rounded-lg p-1 border border-gray-700">
+                                  {['MICRO', 'TIPIS', 'NORMAL', 'LEBAR'].map(mode => (
+                                      <button key={mode} onClick={() => setAmplitude(mode)} className={`flex-1 py-1 rounded text-[9px] font-bold transition-all ${activeWidthMode===mode ? 'bg-purple-600 text-white' : 'text-gray-500'}`}>{mode}</button>
+                                  ))}
+                              </div>
+                          </div>
+                      </div>
+                  )}
+
+                   {playlist.length > 0 && (
+                      <div className="bg-[#111] p-3 rounded-xl border border-gray-800">
+                          <div className="text-xs font-bold text-gray-400 mb-2">DAFTAR LAGU</div>
+                          {playlist.map((s,i) => (
+                              <div key={i} onClick={()=>{setCurrentSongIndex(i); if(audioRef.current){audioRef.current.src=s.url; audioRef.current.play(); setIsPlaying(true);}}} className={`p-2 mb-1 rounded flex justify-between text-xs cursor-pointer ${currentSongIndex===i?'bg-indigo-900/40 text-white':'bg-black text-gray-500'}`}>
+                                  <span className="truncate">{i+1}. {s.name}</span>
+                                  <button onClick={(e)=>{ e.stopPropagation(); const nP = playlist.filter((_, idx) => idx !== i); setPlaylist(nP); if (currentSongIndex === i) setCurrentSongIndex(-1); }}><Trash2 size={12}/></button>
+                              </div>
+                          ))}
+                      </div>
+                   )}
+              </div>
+
+              <input ref={audioInputRef} type="file" accept="audio/*" multiple onChange={handleFile} className="hidden" />
+              <input ref={bgInputRef} type="file" accept="image/*" onChange={e=>{if(e.target.files[0]) { bgImgRef.current=new Image(); bgImgRef.current.src=URL.createObjectURL(e.target.files[0]); }}} className="hidden" />
+              <input ref={logoInputRef} type="file" accept="image/*" onChange={e=>{if(e.target.files[0]) { logoImgRef.current=new Image(); logoImgRef.current.src=URL.createObjectURL(e.target.files[0]); }}} className="hidden" />
+              
+              <audio ref={audioRef} crossOrigin="anonymous" onEnded={()=>{
+                    if(currentSongIndex < playlist.length - 1){
+                        const n = currentSongIndex + 1; setCurrentSongIndex(n);
+                        if(audioRef.current){ audioRef.current.src = playlist[n].url; audioRef.current.play(); }
+                    } else { setIsPlaying(false); if(isRecording) stopRec(); }
+              }} />
+            </div>
+          );
+        };
+
+        // 4. Render App
+        const root = window.ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
