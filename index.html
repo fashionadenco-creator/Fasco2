@@ -112,7 +112,7 @@
           const reqRef = useRef(null);
           const timerRef = useRef(null);
           const dataArrayRef = useRef(new Uint8Array(0)); 
-          
+          const smoothDataRef = useRef(new Float32Array(1024));
           const recStartTimeRef = useRef(0);
           const beatRef = useRef({ peak: 0, decay: 0, threshold: 0.5 });
           
@@ -337,7 +337,12 @@
 
               if (analyserRef.current && !audioRef.current.paused) {
                   analyserRef.current.getByteFrequencyData(dataArray);
-                  
+                  const smoothing = 0.15;
+
+for (let i = 0; i < dataArray.length; i++) {
+  smoothDataRef.current[i] += 
+    (dataArray[i] - smoothDataRef.current[i]) * smoothing;
+        }
                   let bTotal = 0; 
                   for(let b=0; b<4; b++) bTotal += dataArray[b]; 
                   let rawBass = (bTotal / 4) / 255;
